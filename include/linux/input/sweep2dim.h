@@ -28,4 +28,6 @@ struct kcal_sweep {
 
 void kcal_send_sweep(int send);
 
+extern void sweep2wake_pwrtrigger(void);
+
 #endif	/* _LINUX_SWEEP2DIM_H */
