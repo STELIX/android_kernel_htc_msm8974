@@ -14,7 +14,6 @@
 #include <linux/blx.h>
 #include <linux/stat.h>
 #include <linux/export.h>
-#include <linux/input/sweep2dim.h>
 
 static int charging_limit = MAX_CHARGINGLIMIT;
 
@@ -27,21 +26,20 @@ static ssize_t blx_charginglimit_write(struct device * dev, struct device_attrib
 {
     unsigned int data;
 
-    if(sscanf(buf, "%u\n", &data) == 1) 
+    if(sscanf(buf, "%u\n", &data) == 1)
 	{
 	    if (data >= 0 && data <= MAX_CHARGINGLIMIT)
 		{
 		    charging_limit = data;
 
 		    pr_info("BLX charging limit set to %u\n", charging_limit);
-		    sweep2wake_pwrtrigger();
 		}
 	    else
 		{
 		    pr_info("%s: Invalid input range %u\n", __FUNCTION__, data);
 		}
-	} 
-    else 
+	}
+    else
 	{
 	    pr_info("%s: Invalid input\n", __FUNCTION__);
 	}
@@ -51,18 +49,18 @@ static ssize_t blx_charginglimit_write(struct device * dev, struct device_attrib
 
 static DEVICE_ATTR(charging_limit, S_IRUGO | S_IWUGO, blx_charginglimit_read, blx_charginglimit_write);
 
-static struct attribute *blx_attributes[] = 
+static struct attribute *blx_attributes[] =
     {
 	&dev_attr_charging_limit.attr,
 	NULL
     };
 
-static struct attribute_group blx_group = 
+static struct attribute_group blx_group =
     {
 	.attrs  = blx_attributes,
     };
 
-static struct miscdevice blx_device = 
+static struct miscdevice blx_device =
     {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "batterylifeextender",
@@ -82,14 +80,14 @@ static int __init blx_init(void)
 
     ret = misc_register(&blx_device);
 
-    if (ret) 
+    if (ret)
 	{
 	    pr_err("%s misc_register(%s) fail\n", __FUNCTION__, blx_device.name);
 
 	    return 1;
 	}
 
-    if (sysfs_create_group(&blx_device.this_device->kobj, &blx_group) < 0) 
+    if (sysfs_create_group(&blx_device.this_device->kobj, &blx_group) < 0)
 	{
 	    pr_err("%s sysfs_create_group fail\n", __FUNCTION__);
 	    pr_err("Failed to create sysfs group for device (%s)!\n", blx_device.name);
