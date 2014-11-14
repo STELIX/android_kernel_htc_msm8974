@@ -26,6 +26,7 @@
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/slab.h>
 #include <linux/rmi.h>
+#include <linux/input/sweep2dim.h>
 #include <mach/msm_hsusb.h>
 #include <asm/gpio.h>
 #include <linux/input/mt.h>
@@ -54,6 +55,9 @@
 #define SHIFT_BITS (10)
 #define SYN_WIRELESS_DEBUG
 #define SYN_CALIBRATION_CONTROL
+
+#define KCAL_DOWN 1
+#define KCAL_UP 2
 
 #ifdef SYN_CONFIG_LOG_ENABLE
 #define syn_cfg_log(d) do { 	\
@@ -269,6 +273,7 @@ static bool scr_on_touch = false, barrier[2] = {false, false};
 static bool r_barrier[2] = {false,false};
 static bool scr_suspended = false;
 static int s2w_switch = 0;
+static int s2d_switch = 0;
 
 static struct input_dev * sweep2wake_pwrdev;
 static DEFINE_MUTEX(pwrkeyworklock);
@@ -309,7 +314,7 @@ static void detect_sweep2wake(int x, int y)
 	int r_prevx = 0, r_nextx = 0;
 
 	// s2s: right->left
-	if (scr_suspended == false && s2w_switch > 0) {
+	if (scr_suspended == false && (s2w_switch > 0 || s2d_switch == 1)) {
 		scr_on_touch=true;
 		prevx = (S2W_X_MAX - S2W_X_FINAL);
 		nextx = S2W_X_B2;
@@ -331,7 +336,10 @@ static void detect_sweep2wake(int x, int y)
 					if (x < S2W_X_FINAL) {
 						if (exec_count) {
 							pr_info("s2w: OFF\n");
-							sweep2wake_pwrtrigger();
+							if (s2d_switch == 1)
+								kcal_send_sweep(KCAL_DOWN);
+							else
+								sweep2wake_pwrtrigger();
 							exec_count = false;
 						}
 					}
@@ -359,7 +367,10 @@ static void detect_sweep2wake(int x, int y)
 					if (x > S2W_X_B5) {
 						if (exec_count) {
 							pr_info("s2w: OFF\n");
-							sweep2wake_pwrtrigger();
+							if (s2d_switch == 1)
+								kcal_send_sweep(KCAL_UP);
+							else
+								sweep2wake_pwrtrigger();
 							exec_count = false;
 						}
 					}
@@ -1779,6 +1790,29 @@ static ssize_t synaptics_sweep2wake_dump(struct device *dev,
 	return count;
 }
 
+static ssize_t synaptics_sweep2dim_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2d_switch);
+
+	return count;
+}
+
+static ssize_t synaptics_sweep2dim_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] >= '0' && buf[0] <= '1' && buf[1] == '\n')
+		if ((s2d_switch != buf[0] - '0') && (s2w_switch != '2'))
+			s2d_switch = buf[0] - '0';
+
+	return count;
+}
+
+static DEVICE_ATTR(sweep2dim, (S_IWUSR|S_IRUGO),
+	synaptics_sweep2dim_show, synaptics_sweep2dim_dump);
+
 static DEVICE_ATTR(sweep2wake, 0666,
 	synaptics_sweep2wake_show, synaptics_sweep2wake_dump);
 #endif	
@@ -1907,6 +1941,11 @@ static int synaptics_touch_sysfs_init(void)
 		printk(KERN_ERR "%s: sysfs_create_file failed\n", __func__);
 		return ret;
 	}
+	ret = sysfs_create_file(android_touch_kobj, &dev_attr_sweep2dim.attr);
+	if (ret) {
+		printk(KERN_ERR "%s: sysfs_create_file failed\n", __func__);
+		return ret;
+	}
 #endif			
 			
 #ifdef SYN_WIRELESS_DEBUG
@@ -1961,6 +2000,7 @@ static void synaptics_touch_sysfs_remove(void)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
 	sysfs_remove_file(android_touch_kobj, &dev_attr_sweep2wake.attr);
+	sysfs_remove_file(android_touch_kobj, &dev_attr_sweep2dim.attr);
 #endif
 	kobject_del(android_touch_kobj);
 }
@@ -2308,7 +2348,8 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 		}
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
-		if ((((ts->finger_count > 0)?1:0) == 0) && (s2w_switch > 0)) {
+		if ((((ts->finger_count > 0)?1:0) == 0) && (s2w_switch > 0 ||
+				s2d_switch == 1)) {
 			reset_s2w();
 		}
 #endif		
