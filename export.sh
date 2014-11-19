@@ -13,7 +13,7 @@ else
 	export PATH=/home/savoca/storage/toolchains/arm-eabi-4.7/bin:$PATH
 fi
 kernel="furnace"
-version="1.1.0"
+version="1.1.2"
 rom="aosp"
 variant="m8"
 ramdisk=initramfs
