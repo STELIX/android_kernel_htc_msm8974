@@ -293,7 +293,7 @@ static void sweep2wake_presspwr(struct work_struct * sweep2wake_presspwr_work) {
 
 static DECLARE_WORK(sweep2wake_presspwr_work, sweep2wake_presspwr);
 
-void sweep2wake_pwrtrigger(void) {
+static void sweep2wake_pwrtrigger(void) {
 	schedule_work(&sweep2wake_presspwr_work);
     return;
 }
