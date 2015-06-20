@@ -33,6 +33,7 @@
 #include <trace/events/power.h>
 #include <mach/socinfo.h>
 #include <mach/cpufreq.h>
+#include <mach/clk-provider.h>
 
 #ifdef CONFIG_HTC_DEBUG_FOOTPRINT
 #include <mach/htc_footprint.h>
